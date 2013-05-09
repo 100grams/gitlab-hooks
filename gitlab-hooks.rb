@@ -40,7 +40,7 @@ end
 
 def check_commit(commit, push_msg)
   message = " (" + commit['url'] + ")\n- " + commit['message']
-  @hipchat[ENV['room_name']].send('GitLab', "#{push_msg} #{message}")
+  @hipchat[ENV['room_name']].send('GitLab', "#{push_msg} #{message}", :notify => true, :color => 'red')
 
   task_list = []
   close_list = []
