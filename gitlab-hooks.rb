@@ -18,41 +18,42 @@ post '/' do
   json_string = request.body.read.to_s
   puts json_string
   payload = JSON.parse(json_string)
-  
+
   user = payload['user_name']
   branch = payload['ref'].split('/').last
-  
+
   rep = payload['repository']['url'].split('/').last(2).join('/')
   push_msg = user + " pushed to branch " + branch + " of " + rep
-  
+
   Asana.configure do |client|
     client.api_key = ENV['auth_token']
   end
-  
+
   @hipchat = HipChat::Client.new(ENV['hipchat_token'])
   room = params['room']
-  
+
   payload['commits'].each do |commit|
-    message = " (" + commit['url'] + ")\n- " + commit['message']
-    check_commit(commit, push_msg + message)
-    post_hipchat_message(room, push_msg + message)
+    message = " (" + commit['url'] + ")\n- #{commit['message']}"
+    check_commit(message, push_msg)
+    post_hipchat_message(push_msg + message, room)
   end
-  
+
   "Posted to asana!!"
 end
 
 def check_commit(message, push_msg)
   task_list = []
   close_list = []
+
   message.split("\n").each do |line|
     task_list.concat(line.scan(/#(\d+)/)) # look for a task ID
     close_list.concat(line.scan(/(fix\w*)\W*#(\d+)/i)) # look for a word starting with 'fix' followed by a task ID
   end
-  
+
   # post commit to every taskid found
   task_list.each do |taskid|
     task = Asana::Task.find(taskid[0])
-    task.create_story({'text' => "#{push_msg} + #{message}"})
+    task.create_story({'text' => "#{push_msg} #{message}"})
   end
 
   # close all tasks that had 'fix(ed/es/ing) #:id' in them
@@ -63,6 +64,6 @@ def check_commit(message, push_msg)
 end
 
 def post_hipchat_message(message, room)
-  @hipchat[ENV['room_name']].send(room, message, :notify => true, :color => 'red')
+  @hipchat[room].send('GitLab Bot', message, :notify => true, :color => 'red')
 end
 
