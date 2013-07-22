@@ -1,5 +1,6 @@
 require 'rubygems'
 require 'sinatra'
+require 'eventmachine' # lol node wat
 require 'json'
 require 'asana'
 require 'hipchat'
@@ -33,13 +34,15 @@ post '/' do
   @msg_color = params['color'].nil? || !HIPCHAT_COLORS.include?(params['color']) ? DEFAULT_COLOR : params['color']
   room = params['room']
 
-  payload['commits'].each do |commit|
-    message = " (" + commit['url'] + ")\n- #{commit['message']}"
-    check_commit(message, push_msg)
-    post_hipchat_message(push_msg + message, room)
+  EventMachine.defer do
+    payload['commits'].each do |commit|
+      message = " (" + commit['url'] + ")\n- #{commit['message']}"
+      check_commit(message, push_msg)
+      post_hipchat_message(push_msg + message, room)
+    end
   end
 
-  "Posted to asana!!"
+  "BOOM! EvenMachine handled it!"
 end
 
 def check_commit(message, push_msg)
