@@ -1,9 +1,6 @@
 require 'rubygems'
 require 'sinatra'
 require 'json'
-require 'net/http'
-require 'net/https'
-require 'uri'
 require 'asana'
 require 'hipchat'
 require './env' if File.exists?('env.rb')
@@ -13,6 +10,9 @@ set :protection, :except => [:http_origin]
 # use Rack::Auth::Basic do |username, password|
 #   [username, password] == [ENV['username'], ENV['password']]
 # end
+
+HIPCHAT_COLORS = %w(yellow green purple gray) # red is reserved for errors
+DEFAULT_COLOR = 'yellow'
 
 post '/' do
   json_string = request.body.read.to_s
@@ -30,6 +30,7 @@ post '/' do
   end
 
   @hipchat = HipChat::Client.new(ENV['hipchat_token'])
+  @msg_color = params['color'].nil? || !HIPCHAT_COLORS.include?(params['color']) ? DEFAULT_COLOR : params['color']
   room = params['room']
 
   payload['commits'].each do |commit|
@@ -64,6 +65,6 @@ def check_commit(message, push_msg)
 end
 
 def post_hipchat_message(message, room)
-  @hipchat[room].send('GitLab Bot', message, :notify => true, :color => 'red')
+  @hipchat[room].send('GitLab Bot', message, :notify => true, :color => @msg_color)
 end
 
