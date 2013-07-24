@@ -16,32 +16,33 @@ HIPCHAT_COLORS = %w(yellow green purple gray) # red is reserved for errors
 DEFAULT_COLOR = 'yellow'
 
 post '/' do
-  json_string = request.body.read.to_s
-  puts json_string
-  payload = JSON.parse(json_string)
+  EventMachine.run do
+    json_string = request.body.read.to_s
+    puts json_string
+    payload = JSON.parse(json_string)
 
-  user = payload['user_name']
-  branch = payload['ref'].split('/').last
+    user = payload['user_name']
+    branch = payload['ref'].split('/').last
 
-  rep = payload['repository']['url'].split('/').last(2).join('/')
-  push_msg = user + " pushed to branch " + branch + " of " + rep
+    rep = payload['repository']['url'].split('/').last(2).join('/')
+    push_msg = user + " pushed to branch " + branch + " of " + rep
 
-  Asana.configure do |client|
-    client.api_key = ENV['auth_token']
-  end
+    Asana.configure do |client|
+      client.api_key = ENV['auth_token']
+    end
 
-  @hipchat = HipChat::Client.new(ENV['hipchat_token'])
-  @msg_color = params['color'].nil? || !HIPCHAT_COLORS.include?(params['color']) ? DEFAULT_COLOR : params['color']
-  room = params['room']
+    @hipchat = HipChat::Client.new(ENV['hipchat_token'])
+    @msg_color = params['color'].nil? || !HIPCHAT_COLORS.include?(params['color']) ? DEFAULT_COLOR : params['color']
+    room = params['room']
 
-  EventMachine.defer do
-    payload['commits'].each do |commit|
-      message = " (" + commit['url'] + ")\n- #{commit['message']}"
-      check_commit(message, push_msg)
-      post_hipchat_message(push_msg + message, room)
+    EventMachine.defer do
+      payload['commits'].each do |commit|
+        message = " (" + commit['url'] + ")\n- #{commit['message']}"
+        check_commit(message, push_msg)
+        post_hipchat_message(push_msg + message, room)
+      end
     end
   end
-
   "BOOM! EvenMachine handled it!"
 end
 
