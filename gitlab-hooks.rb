@@ -2,9 +2,9 @@ require 'rubygems'
 require 'sinatra'
 require 'eventmachine' # lol node wat
 require 'json'
-require 'asana'
 require 'hipchat'
 require './env' if File.exists?('env.rb')
+require 'asana'
 
 set :protection, :except => [:http_origin]
 
@@ -27,8 +27,14 @@ post '/' do
     rep = payload['repository']['url'].split('/').last(2).join('/')
     push_msg = user + " pushed to branch " + branch + " of " + rep
 
-    Asana.configure do |client|
-      client.api_key = ENV['auth_token']
+    api_token = ENV['asana_api_token']
+    unless api_token
+      abort "Run this program with the env var ASANA_API_TOKEN.\n"  \
+        "Go to http://app.asana.com/-/account_api to see your API token."
+    end
+
+    @client = Asana::Client.new do |c|
+      c.authentication :api_token, api_token
     end
 
     @hipchat = HipChat::Client.new(ENV['hipchat_token'])
@@ -57,14 +63,14 @@ def check_commit(message, push_msg)
 
   # post commit to every taskid found
   task_list.each do |taskid|
-    task = Asana::Task.find(taskid[0])
-    task.create_story({'text' => "#{push_msg} #{message}"})
+    task = @client.tasks.find_by_id(taskid[0])
+    task.add_comment(text:"#{push_msg} #{message}")
   end
 
   # close all tasks that had 'fix(ed/es/ing) #:id' in them
   close_list.each do |taskid|
-    task = Asana::Task.find(taskid.last)
-    task.modify(:completed => true)
+    task = @client.tasks.find_by_id(taskid.last)
+    task.update(:completed => true)
   end
 end
 
